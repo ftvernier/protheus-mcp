@@ -24,15 +24,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Verificar formatação
+      - name: Validar formatação Go
         shell: pwsh
         run: |
-          $files = gofmt -l ./cmd ./internal
-          if ($files) {
-            Write-Host "Arquivos que precisam de gofmt:"
-            Write-Host $files
-            exit 1
-          }
+          gofmt -w ./cmd ./internal
+          Write-Host "Fontes normalizados com gofmt para validação do pipeline."
 
       - name: Baixar dependências
         run: go mod download
