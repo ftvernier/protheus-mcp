@@ -1,30 +1,31 @@
 # Protheus MCP
 
-> **AI-assisted troubleshooting for TOTVS Protheus.**
+> **Troubleshooting de ambientes TOTVS Protheus assistido por IA.**
 
-**Protheus MCP** is an open-source MCP (Model Context Protocol) server written in **Go** that gives AI assistants real-time, **read-only** visibility into TOTVS Protheus environments.
+**Protheus MCP** é um servidor open source baseado no **Model Context Protocol (MCP)** e desenvolvido em **Go**, criado para fornecer a assistentes de IA visibilidade **em tempo real e somente leitura** sobre ambientes TOTVS Protheus.
 
-Instead of asking an AI a generic question such as *“what can make Protheus slow?”*, Protheus MCP enables a much more useful workflow:
+Em vez de perguntar para uma IA algo genérico como *“o que pode deixar o Protheus lento?”*, a proposta é permitir uma pergunta muito mais interessante:
 
-> **“Investigate why my Protheus environment is slow right now.”**
+> **“Meu Protheus está lento agora. Investigue o que está acontecendo.”**
 
-The AI can collect evidence from the Windows host, Protheus AppServer processes, and SQL Server, then correlate those signals to assist with troubleshooting.
+A IA pode utilizar as ferramentas expostas pelo Protheus MCP para coletar evidências do Windows, dos processos do Protheus AppServer e do SQL Server e, a partir desses dados, auxiliar na investigação do problema.
 
 ![Go](https://img.shields.io/badge/Go-1.23%2B-00ADD8?logo=go&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-Server-5A45FF)
-![Windows](https://img.shields.io/badge/Windows-primary-0078D4?logo=windows)
-![SQL Server](https://img.shields.io/badge/SQL%20Server-supported-CC2927?logo=microsoftsqlserver&logoColor=white)
-![Read Only](https://img.shields.io/badge/security-read--only-success)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![Windows](https://img.shields.io/badge/Windows-principal-0078D4?logo=windows)
+![SQL Server](https://img.shields.io/badge/SQL%20Server-suportado-CC2927?logo=microsoftsqlserver&logoColor=white)
+![Read Only](https://img.shields.io/badge/segurança-read--only-success)
+![License](https://img.shields.io/badge/licença-MIT-blue)
 
-## Why Protheus MCP?
+## Por que o Protheus MCP?
 
-Troubleshooting ERP performance often means jumping between Task Manager, Windows services, SQL Server DMVs, AppServer processes, logs, and monitoring tools.
+Investigar problemas de performance em um ERP normalmente exige alternar entre Gerenciador de Tarefas, serviços do Windows, DMVs do SQL Server, processos do AppServer, logs e ferramentas de monitoramento.
 
-Protheus MCP starts building a single bridge between that operational context and an MCP-compatible AI assistant.
+O Protheus MCP começa a criar uma ponte única entre esse contexto operacional e um assistente de IA compatível com MCP.
 
 ```text
-                    MCP-compatible AI
+                    Assistente de IA
+                    compatível com MCP
                            │
                            │ MCP / stdio
                            ▼
@@ -36,69 +37,86 @@ Protheus MCP starts building a single bridge between that operational context an
               ┌────────────┼────────────┐
               ▼            ▼            ▼
            Windows      Protheus     SQL Server
-              │         AppServer        │
-              └────────────┼─────────────┘
+                        AppServer
+              │            │            │
+              └────────────┼────────────┘
                            ▼
-                    Operational data
+                    Dados operacionais
                            │
                            ▼
-                  AI-assisted diagnosis
+                  Diagnóstico assistido
+                         por IA
 ```
 
-## v0.1.0-alpha capabilities
+## O que a v0.1.0-alpha faz?
 
-The first public alpha exposes six read-only MCP tools:
+A primeira versão pública disponibiliza **seis tools MCP read-only**:
 
-| Tool | Purpose |
+| Tool | Finalidade |
 | --- | --- |
-| `get_system_health` | CPU, memory, OS uptime, and local disk usage |
-| `get_protheus_processes` | Finds AppServer processes and returns PID, CPU, memory, and uptime |
-| `get_database_health` | SQL Server connectivity, latency, active requests, blocked requests, and long-running requests |
-| `get_long_running_queries` | Lists currently executing requests above a configurable duration threshold |
-| `get_blocking_sessions` | Shows current SQL Server blocking relationships and blocking/blocked session IDs |
-| `get_session_details` | Deep-dives into a SQL Server session, including waits, blocker, CPU, and SQL text |
+| `get_system_health` | CPU, memória, uptime do sistema operacional e utilização dos discos locais |
+| `get_protheus_processes` | Localiza processos do AppServer e retorna PID, CPU, memória e uptime |
+| `get_database_health` | Valida conexão e latência do SQL Server e identifica requests ativos, bloqueados e de longa duração |
+| `get_long_running_queries` | Lista requests atualmente em execução acima de um tempo mínimo configurável |
+| `get_blocking_sessions` | Identifica relações de bloqueio entre sessões no SQL Server |
+| `get_session_details` | Aprofunda a análise de uma sessão específica, incluindo waits, blocker, CPU e SQL em execução |
 
-### Example investigation
+### Exemplo de investigação
 
 ```text
-User: My Protheus environment is slow. Investigate it.
+Usuário: Meu ambiente Protheus está lento. Investigue.
 
-AI
+IA
  ├─ get_system_health()
- │    └─ CPU: normal / Memory: normal / Disk: normal
+ │    └─ CPU: normal / Memória: normal / Disco: normal
+ │
  ├─ get_database_health()
  │    └─ blocked_requests: 4
+ │
  ├─ get_blocking_sessions()
- │    └─ session 84 is blocking sessions 117, 132 and 141
+ │    └─ sessão 84 bloqueia as sessões 117, 132 e 141
+ │
  └─ get_session_details(session_id=84)
-      └─ TOTVS Application Server / long-running SQL request
+      └─ TOTVS Application Server / request SQL de longa duração
 
-AI: The strongest current indicator is database contention. Session 84,
-    originated by TOTVS Application Server, is blocking three requests.
-    Host resources are currently within normal ranges.
+IA: O principal indício neste momento é contenção no banco de dados.
+    A sessão 84, originada pelo TOTVS Application Server, está bloqueando
+    outras três sessões. Os recursos do host estão dentro da normalidade.
 ```
 
-The MCP provides the **evidence**. The AI assistant provides the reasoning and explanation.
+O MCP fornece as **evidências estruturadas**. O assistente de IA utiliza essas evidências para raciocinar, correlacionar sinais e explicar o diagnóstico.
 
-## Security first: read-only by design
+## Segurança: read-only por design
 
-The public alpha is intentionally diagnostic-only. It does **not** execute arbitrary SQL, run `KILL`, terminate AppServer processes, restart services, modify `appserver.ini`, modify ERP/database data, or return credentials through MCP tools.
+A versão pública foi intencionalmente criada para diagnóstico e **não realiza ações corretivas automaticamente**.
 
-SQL text returned by diagnostic tools is truncated to reduce unnecessary exposure and context usage.
+Ela **não**:
 
-> Review the privacy/data-handling policy of the AI client you connect to the MCP. Operational metadata and SQL text returned by tools may become part of that client's model context.
+- executa SQL arbitrário;
+- executa `KILL` em sessões do SQL Server;
+- encerra processos do AppServer;
+- reinicia serviços do Windows;
+- altera `appserver.ini`;
+- altera dados do ERP ou do banco;
+- retorna credenciais do banco através das tools MCP.
 
-## Requirements
+O texto SQL retornado pelas ferramentas de diagnóstico também é limitado para reduzir exposição desnecessária de dados e consumo de contexto.
 
-### Build from source
+> **Importante:** revise a política de privacidade e tratamento de dados do cliente de IA utilizado. Metadados operacionais e trechos de SQL retornados pelas tools podem fazer parte do contexto enviado ao modelo utilizado pelo cliente MCP.
+
+## Requisitos
+
+### Para compilar o projeto
+
 - Go 1.23+
-- Windows is the primary target for the first alpha
-- SQL Server is optional; system/process tools work without database configuration
+- Windows é o sistema operacional principal suportado nesta primeira alpha
+- SQL Server é opcional: as tools de sistema e processos funcionam mesmo sem configuração do banco
 
-### Compiled release
-No Go runtime is required. Download the Windows executable from a project release and configure it in your MCP client.
+### Para utilizar uma versão compilada
 
-## Build on Windows
+O Go não é necessário em runtime. Basta utilizar o executável Windows disponibilizado em uma release e configurá-lo no cliente MCP.
+
+## Compilando no Windows
 
 ```powershell
 go mod tidy
@@ -106,25 +124,29 @@ go test ./...
 go build -o protheus-mcp.exe ./cmd/protheus-mcp
 ```
 
-Or:
+Ou utilize o script:
 
 ```powershell
 .\scripts\build-windows.ps1
 ```
 
-## Configuration
+## Configuração
 
-| Variable | Required | Default | Description |
+Nesta versão, a configuração é realizada por **variáveis de ambiente**, mantendo credenciais fora do código-fonte e do repositório.
+
+| Variável | Obrigatória | Padrão | Descrição |
 | --- | --- | --- | --- |
-| `PROTHEUS_PROCESS` | No | `appserver` | Process name/pattern used to find Protheus AppServers |
-| `DB_HOST` | SQL tools | — | SQL Server host |
-| `DB_PORT` | No | `1433` | SQL Server TCP port |
-| `DB_NAME` | SQL tools | — | Protheus database name |
-| `DB_USER` | SQL tools | — | Monitoring login |
-| `DB_PASSWORD` | SQL tools | — | Monitoring password |
-| `DB_ENCRYPT` | No | `true` | Enables encrypted SQL Server connection |
-| `DB_TRUST_SERVER_CERTIFICATE` | No | `false` | Trusts the presented SQL Server certificate without CA validation |
-| `QUERY_TIMEOUT_SECONDS` | No | `5` | Timeout for monitoring queries |
+| `PROTHEUS_PROCESS` | Não | `appserver` | Nome/padrão utilizado para localizar processos do Protheus AppServer |
+| `DB_HOST` | Para tools SQL | — | Host do SQL Server |
+| `DB_PORT` | Não | `1433` | Porta TCP do SQL Server |
+| `DB_NAME` | Para tools SQL | — | Nome do banco Protheus |
+| `DB_USER` | Para tools SQL | — | Login utilizado para monitoramento |
+| `DB_PASSWORD` | Para tools SQL | — | Senha do login de monitoramento |
+| `DB_ENCRYPT` | Não | `true` | Habilita conexão criptografada com o SQL Server |
+| `DB_TRUST_SERVER_CERTIFICATE` | Não | `false` | Aceita o certificado apresentado pelo SQL Server sem validar a cadeia da CA |
+| `QUERY_TIMEOUT_SECONDS` | Não | `5` | Timeout das consultas de monitoramento |
+
+### Exemplo
 
 ```cmd
 set PROTHEUS_PROCESS=appserver
@@ -132,18 +154,30 @@ set DB_HOST=localhost
 set DB_PORT=1433
 set DB_NAME=PROTHEUS
 set DB_USER=protheus_monitor
-set DB_PASSWORD=CHANGE_ME
+set DB_PASSWORD=ALTERE_AQUI
 set DB_ENCRYPT=true
 set DB_TRUST_SERVER_CERTIFICATE=false
 ```
 
-For SQL Server environments using an internal/self-signed certificate, `DB_TRUST_SERVER_CERTIFICATE=true` may be necessary. Prefer a certificate trusted by the client whenever possible.
+Em ambientes SQL Server que utilizam certificado interno/self-signed, pode ser necessário:
 
-### Least privilege
+```cmd
+set DB_TRUST_SERVER_CERTIFICATE=true
+```
 
-Use a dedicated **monitoring-only login**. Do not use `sa`, the Protheus application credential, or an account with unnecessary write privileges. The alpha performs only diagnostic reads/DMV queries.
+Sempre que possível, prefira utilizar um certificado confiável para o cliente. Essa opção mantém a conexão criptografada, mas ignora a validação da cadeia do certificado.
 
-## Testing with MCP Inspector
+### Privilégio mínimo
+
+Utilize um login **dedicado exclusivamente ao monitoramento**.
+
+Evite utilizar `sa`, a própria credencial utilizada pelo Protheus ou qualquer conta com privilégios de escrita desnecessários. A alpha executa somente consultas de diagnóstico e leitura das DMVs necessárias.
+
+## Testando com o MCP Inspector
+
+O **MCP Inspector** é uma ótima forma de validar o servidor antes de conectá-lo a um assistente de IA.
+
+Exemplo utilizando o CMD do Windows:
 
 ```cmd
 npx @modelcontextprotocol/inspector ^
@@ -151,17 +185,19 @@ npx @modelcontextprotocol/inspector ^
   -e DB_PORT=1433 ^
   -e DB_NAME=PROTHEUS ^
   -e DB_USER=protheus_monitor ^
-  -e DB_PASSWORD=CHANGE_ME ^
+  -e DB_PASSWORD=ALTERE_AQUI ^
   -e DB_ENCRYPT=true ^
   -e DB_TRUST_SERVER_CERTIFICATE=false ^
   .\protheus-mcp.exe
 ```
 
-After connecting, the six tools should be visible in the Inspector.
+Após conectar, as seis tools deverão aparecer no Inspector.
 
-## MCP client configuration
+## Configurando em um cliente MCP
 
-Protheus MCP currently uses MCP over `stdio`.
+O Protheus MCP utiliza atualmente o transporte MCP via `stdio`.
+
+Uma configuração típica de cliente MCP é semelhante a:
 
 ```json
 {
@@ -174,7 +210,7 @@ Protheus MCP currently uses MCP over `stdio`.
         "DB_PORT": "1433",
         "DB_NAME": "PROTHEUS",
         "DB_USER": "protheus_monitor",
-        "DB_PASSWORD": "CHANGE_ME",
+        "DB_PASSWORD": "ALTERE_AQUI",
         "DB_ENCRYPT": "true",
         "DB_TRUST_SERVER_CERTIFICATE": "false"
       }
@@ -183,64 +219,93 @@ Protheus MCP currently uses MCP over `stdio`.
 }
 ```
 
-Because the server uses `stdio`, stdout is reserved for MCP JSON-RPC traffic. Application logs are written to stderr.
+Como o servidor utiliza `stdio`, o `stdout` é reservado para o tráfego JSON-RPC do MCP. Logs da aplicação são enviados para `stderr`.
 
-## Suggested prompts
+## Prompts para experimentar
+
+Depois de conectar o servidor a um cliente de IA compatível com MCP, experimente:
 
 ```text
-Analyze the current health of my Protheus environment. Use the available
-read-only Protheus MCP tools and explain the evidence before recommending
-what I should investigate.
+Analise a saúde atual do meu ambiente Protheus utilizando as ferramentas
+read-only disponíveis. Explique as evidências encontradas antes de recomendar
+o que devo investigar.
 ```
 
 ```text
-My Protheus environment is slow right now. Determine whether the strongest
-indicator is the Windows host, AppServer processes, or SQL Server.
+Meu Protheus está lento agora. Investigue se o principal indício está no
+servidor Windows, nos processos do AppServer ou no SQL Server.
 ```
 
 ```text
-Check for SQL Server blocking. If you find a blocker, inspect the blocking
-session and explain what it is doing. Do not perform any corrective action.
+Verifique se existem bloqueios no SQL Server. Caso encontre um blocker,
+analise a sessão responsável e explique o que ela está fazendo.
+Não realize nenhuma ação corretiva.
+```
+
+## Estrutura do projeto
+
+```text
+protheus-mcp/
+├── cmd/
+│   └── protheus-mcp/
+├── internal/
+│   ├── config/
+│   ├── database/
+│   │   └── sqlserver/
+│   ├── protheus/
+│   ├── system/
+│   └── tools/
+├── scripts/
+├── .github/workflows/
+├── CONTRIBUTING.md
+├── SECURITY.md
+├── LICENSE
+└── README.md
 ```
 
 ## Roadmap
 
 ### v0.1.x
-- [x] MCP server written in Go
-- [x] Windows host health
-- [x] Protheus AppServer process discovery
-- [x] SQL Server health
-- [x] Long-running query diagnostics
-- [x] Blocking-session diagnostics
-- [x] Session deep-dive
-- [x] Configurable SQL Server TLS certificate trust
-- [ ] Expanded automated test coverage
-- [ ] Friendlier configuration/bootstrap experience
+
+- [x] MCP Server desenvolvido em Go
+- [x] Health check do Windows
+- [x] Descoberta de processos Protheus AppServer
+- [x] Health check do SQL Server
+- [x] Diagnóstico de queries de longa duração
+- [x] Diagnóstico de sessões bloqueadas
+- [x] Detalhamento de sessões SQL
+- [x] Configuração de confiança do certificado TLS do SQL Server
+- [ ] Ampliar cobertura de testes automatizados
+- [ ] Melhorar experiência inicial de configuração
 
 ### v0.2
-- [ ] Windows service discovery
-- [ ] `appserver.ini` parser and environment context
-- [ ] DBAccess / License Server / REST connectivity checks
-- [ ] SQL Server wait diagnostics
 
-### Future
-- [ ] PostgreSQL provider
-- [ ] AppServer log diagnostics
-- [ ] Multi-host environment correlation
-- [ ] Additional Protheus operational context
+- [ ] Descoberta e status dos serviços Windows do Protheus
+- [ ] Parser de `appserver.ini` e contexto dos environments
+- [ ] Testes de conectividade com DBAccess, License Server e REST
+- [ ] Diagnóstico de waits do SQL Server
 
-## Contributing
+### Futuro
 
-Issues, feedback, test results, and pull requests are welcome. Early feedback from different Protheus topologies is especially valuable while the project is still in alpha.
+- [ ] Provider PostgreSQL
+- [ ] Diagnóstico de logs do AppServer
+- [ ] Correlação entre múltiplos hosts
+- [ ] Mais contexto operacional específico do Protheus
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+## Contribuindo
 
-## Disclaimer
+Issues, feedbacks, resultados de testes e Pull Requests são muito bem-vindos.
 
-This is an independent open-source project and is **not affiliated with or endorsed by TOTVS S.A.** TOTVS and Protheus are trademarks of their respective owners.
+Como o projeto ainda está em alpha, testes em diferentes topologias Protheus serão especialmente importantes para definir as próximas funcionalidades.
 
-The project is experimental software. Validate diagnostics in controlled environments before relying on them in production.
+Consulte também [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-## License
+## Aviso
 
-MIT — see [`LICENSE`](LICENSE).
+Este é um projeto open source independente e **não possui vínculo ou endosso da TOTVS S.A.** TOTVS e Protheus são marcas de seus respectivos proprietários.
+
+O projeto ainda é experimental. Valide os diagnósticos em ambientes controlados antes de utilizá-los como base para decisões em produção.
+
+## Licença
+
+MIT — consulte [`LICENSE`](LICENSE).
