@@ -21,17 +21,15 @@ jobs:
       - name: Configurar Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: '1.25.x'
           cache: true
 
-      - name: Validar formatação Go
+      - name: Normalizar formatação Go
         shell: pwsh
-        run: |
-          gofmt -w ./cmd ./internal
-          Write-Host "Fontes normalizados com gofmt para validação do pipeline."
+        run: gofmt -w ./cmd ./internal
 
-      - name: Baixar dependências
-        run: go mod download
+      - name: Sincronizar módulos
+        run: go mod tidy
 
       - name: Executar testes
         run: go test ./...
