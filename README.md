@@ -309,3 +309,7 @@ O projeto ainda é experimental. Valide os diagnósticos em ambientes controlado
 ## Licença
 
 MIT — consulte [`LICENSE`](LICENSE).
+
+## Linkedin - Contato
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/fernando-v-10758522/)
