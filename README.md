@@ -10,7 +10,7 @@ Em vez de perguntar para uma IA algo genérico como *“o que pode deixar o Prot
 
 A IA pode utilizar as ferramentas expostas pelo Protheus MCP para coletar evidências do Windows, dos processos do Protheus AppServer e do SQL Server e, a partir desses dados, auxiliar na investigação do problema.
 
-![Go](https://img.shields.io/badge/Go-1.23%2B-00ADD8?logo=go&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-Server-5A45FF)
 ![Windows](https://img.shields.io/badge/Windows-principal-0078D4?logo=windows)
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-suportado-CC2927?logo=microsoftsqlserver&logoColor=white)
@@ -69,13 +69,10 @@ Usuário: Meu ambiente Protheus está lento. Investigue.
 IA
  ├─ get_system_health()
  │    └─ CPU: normal / Memória: normal / Disco: normal
- │
  ├─ get_database_health()
  │    └─ blocked_requests: 4
- │
  ├─ get_blocking_sessions()
  │    └─ sessão 84 bloqueia as sessões 117, 132 e 141
- │
  └─ get_session_details(session_id=84)
       └─ TOTVS Application Server / request SQL de longa duração
 
@@ -85,6 +82,41 @@ IA: O principal indício neste momento é contenção no banco de dados.
 ```
 
 O MCP fornece as **evidências estruturadas**. O assistente de IA utiliza essas evidências para raciocinar, correlacionar sinais e explicar o diagnóstico.
+
+## Como a IA sabe o que fazer?
+
+Quando o Protheus MCP é iniciado por um cliente compatível, ele anuncia as tools disponíveis, incluindo nome, descrição e parâmetros aceitos.
+
+A IA não recebe acesso livre ao Windows ou ao SQL Server. Ela pode apenas solicitar a execução das operações que o Protheus MCP expõe.
+
+Exemplo:
+
+```text
+Usuário
+"Meu Protheus está lento. Avalie o banco."
+        │
+        ▼
+Assistente de IA
+        │
+        ├─ get_database_health()
+        │        │
+        │        └─ encontrou bloqueios
+        │
+        ├─ get_blocking_sessions()
+        │        │
+        │        └─ identificou session_id 84 como blocker
+        │
+        └─ get_session_details(session_id=84)
+                 │
+                 ▼
+          Evidências estruturadas
+                 │
+                 ▼
+        IA correlaciona os dados
+        e apresenta o diagnóstico
+```
+
+As consultas SQL utilizadas por cada tool são definidas pelo próprio projeto. A IA **não envia SQL arbitrário para ser executado**.
 
 ## Segurança: read-only por design
 
@@ -108,7 +140,7 @@ O texto SQL retornado pelas ferramentas de diagnóstico também é limitado para
 
 ### Para compilar o projeto
 
-- Go 1.23+
+- Go 1.25+
 - Windows é o sistema operacional principal suportado nesta primeira alpha
 - SQL Server é opcional: as tools de sistema e processos funcionam mesmo sem configuração do banco
 
@@ -173,31 +205,30 @@ Utilize um login **dedicado exclusivamente ao monitoramento**.
 
 Evite utilizar `sa`, a própria credencial utilizada pelo Protheus ou qualquer conta com privilégios de escrita desnecessários. A alpha executa somente consultas de diagnóstico e leitura das DMVs necessárias.
 
-## Testando com o MCP Inspector
+## Como conectar o Protheus MCP a uma IA?
 
-O **MCP Inspector** é uma ótima forma de validar o servidor antes de conectá-lo a um assistente de IA.
+O Protheus MCP utiliza atualmente o transporte MCP via **`stdio`**. Isso significa que um cliente de IA com suporte a servidores MCP locais inicia o `protheus-mcp.exe` como um processo e conversa com ele pelo protocolo MCP.
 
-Exemplo utilizando o CMD do Windows:
+A arquitetura é:
 
-```cmd
-npx @modelcontextprotocol/inspector ^
-  -e DB_HOST=localhost ^
-  -e DB_PORT=1433 ^
-  -e DB_NAME=PROTHEUS ^
-  -e DB_USER=protheus_monitor ^
-  -e DB_PASSWORD=ALTERE_AQUI ^
-  -e DB_ENCRYPT=true ^
-  -e DB_TRUST_SERVER_CERTIFICATE=false ^
-  .\protheus-mcp.exe
+```text
+┌────────────────────────────┐
+│ Cliente de IA compatível   │
+│ com MCP local / stdio      │
+└─────────────┬──────────────┘
+              │ MCP / stdio
+              ▼
+┌────────────────────────────┐
+│     protheus-mcp.exe       │
+└─────────────┬──────────────┘
+              │
+       ┌──────┼──────┐
+       ▼      ▼      ▼
+    Windows Protheus SQL Server
+            AppServer
 ```
 
-Após conectar, as seis tools deverão aparecer no Inspector.
-
-## Configurando em um cliente MCP
-
-O Protheus MCP utiliza atualmente o transporte MCP via `stdio`.
-
-Uma configuração típica de cliente MCP é semelhante a:
+O cliente precisa receber o caminho do executável e as variáveis de ambiente necessárias. O formato exato de configuração varia conforme a ferramenta de IA utilizada, mas clientes MCP baseados em configuração JSON normalmente seguem um modelo semelhante a este:
 
 ```json
 {
@@ -219,7 +250,37 @@ Uma configuração típica de cliente MCP é semelhante a:
 }
 ```
 
-Como o servidor utiliza `stdio`, o `stdout` é reservado para o tráfego JSON-RPC do MCP. Logs da aplicação são enviados para `stderr`.
+Depois que o cliente inicia o servidor, o Protheus MCP anuncia automaticamente suas tools. A partir daí, o modelo pode selecionar a ferramenta adequada conforme a pergunta do usuário e utilizar o resultado como contexto para continuar a investigação.
+
+> **Atenção:** suporte a MCP local, formato do arquivo de configuração e forma de cadastro variam entre clientes. Consulte a documentação do cliente de IA que você pretende utilizar.
+
+### E o ChatGPT?
+
+A versão atual do Protheus MCP é um servidor **local via `stdio`**. Clientes que suportam diretamente esse transporte podem iniciar o executável localmente.
+
+Para plataformas de IA que trabalham com **MCP remoto**, como cenários de integração com o ChatGPT, é necessária uma camada de transporte remoto/túnel compatível entre a plataforma e o Protheus MCP. O SQL Server e o AppServer **não devem ser expostos diretamente à internet** para viabilizar essa integração.
+
+Adicionar suporte nativo a transporte MCP remoto, com autenticação e controles adequados, faz parte da evolução planejada do projeto.
+
+## Testando primeiro com o MCP Inspector
+
+Antes de conectar o servidor a uma IA, recomendamos validar a instalação com o **MCP Inspector**.
+
+Exemplo utilizando o CMD do Windows:
+
+```cmd
+npx @modelcontextprotocol/inspector ^
+  -e DB_HOST=localhost ^
+  -e DB_PORT=1433 ^
+  -e DB_NAME=PROTHEUS ^
+  -e DB_USER=protheus_monitor ^
+  -e DB_PASSWORD=ALTERE_AQUI ^
+  -e DB_ENCRYPT=true ^
+  -e DB_TRUST_SERVER_CERTIFICATE=false ^
+  .\protheus-mcp.exe
+```
+
+Após conectar, as seis tools deverão aparecer no Inspector.
 
 ## Prompts para experimentar
 
@@ -284,6 +345,7 @@ protheus-mcp/
 - [ ] Parser de `appserver.ini` e contexto dos environments
 - [ ] Testes de conectividade com DBAccess, License Server e REST
 - [ ] Diagnóstico de waits do SQL Server
+- [ ] Transporte MCP remoto com autenticação
 
 ### Futuro
 
@@ -310,6 +372,6 @@ O projeto ainda é experimental. Valide os diagnósticos em ambientes controlado
 
 MIT — consulte [`LICENSE`](LICENSE).
 
-## Linkedin - Fernando Vernier
+## LinkedIn - Fernando Vernier
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/fernando-v-10758522/)
